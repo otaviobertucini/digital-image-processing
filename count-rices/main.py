@@ -9,6 +9,8 @@ import sys
 import timeit
 import numpy as np
 import cv2
+from matplotlib.pyplot import boxplot
+import matplotlib.pyplot as plt
 
 #===============================================================================
 
@@ -31,7 +33,7 @@ def binariza(img, threshold):
 
 #-------------------------------------------------------------------------------
 
-def rotula (img, largura_min, altura_min, n_pixels_min):
+def label (img, largura_min, altura_min, n_pixels_min):
 
     # Use a abordagem com flood fill recursivo.
 
@@ -123,45 +125,31 @@ def main ():
     img = img.reshape ((img.shape [0], img.shape [1], 1))
     cv2.imwrite ('01 - binarizada.png', img)
 
-    kernel = np.ones((3,3),np.uint8)
-    img_erosion = cv2.erode(img, kernel, iterations=2)
-    cv2.imwrite ('01 - erodida.png', img_erosion)
+    ## para contar, usei o mesmo algoritimo do primeiro trabalho (flood fill)
+    components = label (img / 255, LARGURA_MIN, ALTURA_MIN, N_PIXELS_MIN)
+    n_components = len(components)
 
-    duo = np.zeros(img.shape)
+    blobs = np.array([blob['n_pixels'] for blob in components])
 
-    for y in range(0, img.shape[0]):
-        for x in range(0, img.shape[1]):
-            if(img[y][x][0] == 255):
-                duo[y][x][0] = original[y][x][0]
+    ## calcula os 1º e 3º quatis
+    p25 = np.percentile(blobs, 25)
+    p75 = np.percentile(blobs, 75)
+    ## calcula o interquartil
+    itq = p75 - p25
+    ## remove os outliers de cima
+    outliers = blobs[blobs > p75 + itq * 1.5]
+    not_outliers = blobs[blobs < p75 + itq * 1.5]
+    ## remove os outliers de baixo
+    without_min_ouliers = not_outliers[not_outliers > p25 - itq * 1.5]
+    ## calcula a média dos não outliers (testei com média e mediana, com média ficou melhor)
+    median = np.mean(without_min_ouliers)
 
-    cv2.imwrite ('01 - duo.png', duo)
+    ## pega os outliers, divide pela média (arredonda para cima) e subtrai um (pois já está na contagem)
+    counts = sum(np.ceil((outliers / median) - 1))
 
-    a,ret = cv2.threshold(duo,200,255,cv2.THRESH_BINARY)
-
-    kernel = np.ones((5,5),np.uint8)
-    ret = cv2.erode(ret, kernel, iterations=1)
-
-    cv2.imwrite ('01 - ret.png', ret)
-
-# 
-    # output = np.zeros(original.shape)
-    # output = cv2.normalize(duo, output, 0, 255, cv2.NORM_MINMAX)
-    # cv2.imwrite ('01 - normalized.png', duo)
-
-    # start_time = timeit.default_timer ()
-    # componentes = rotula (img, LARGURA_MIN, ALTURA_MIN, N_PIXELS_MIN)
-    # n_componentes = len (componentes)
-    # print ('Tempo: %f' % (timeit.default_timer () - start_time))
-    # print ('%d componentes detectados.' % n_componentes)
-
-    # # Mostra os objetos encontrados.
-    # for c in componentes:
-    #     cv2.rectangle (img_out, (c ['L'], c ['T']), (c ['R'], c ['B']), (0,0,1))
-
-    # # cv2.imshow ('02 - out', img_out)
-    # cv2.imwrite ('02 - out.png', img_out*255)
-    cv2.waitKey ()
-    cv2.destroyAllWindows ()
+    ## resultado final = componentes achados pelo flood fill + componentes achados pela divisão dos outliers
+    final = counts + n_components
+    print('Esta imagem contém ~' + str(final) + ' arrozes.')
 
 
 if __name__ == '__main__':
