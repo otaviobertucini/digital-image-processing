@@ -1,9 +1,4 @@
-#===============================================================================
-# Exemplo: segmentação de uma imagem em escala de cinza.
-#-------------------------------------------------------------------------------
-# Autor: Bogdan T. Nassu
-# Universidade Tecnológica Federal do Paraná
-#===============================================================================
+## Alunos: Otávio Bertucini e Isadora Chandelier
 
 import sys
 import timeit
@@ -14,7 +9,7 @@ import matplotlib.pyplot as plt
 
 #===============================================================================
 
-INPUT_IMAGE =  './images/205.bmp'
+INPUT_IMAGE = './images/114.bmp'
 
 NEGATIVO = False
 THRESHOLD = 0.60
@@ -123,7 +118,6 @@ def main ():
     kernel = np.ones((6,6),np.uint8)
     img = cv2.morphologyEx(img, cv2.MORPH_OPEN, kernel)
     img = img.reshape ((img.shape [0], img.shape [1], 1))
-    cv2.imwrite ('01 - binarizada.png', img)
 
     ## para contar, usei o mesmo algoritimo do primeiro trabalho (flood fill)
     components = label (img / 255, LARGURA_MIN, ALTURA_MIN, N_PIXELS_MIN)
