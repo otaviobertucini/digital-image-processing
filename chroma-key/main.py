@@ -8,13 +8,29 @@ from matplotlib.pyplot import boxplot
 import matplotlib.pyplot as plt
 import math
 
-INPUT_IMAGE = './images/8.bmp'
+INPUT_IMAGE = './images/0.bmp'
+BACK_IMAGE = './back.bmp'
 GREEN = [0, 255, 0]
 R = 0
 G = 1
 B = 2
 
-## metodo retidado de https://www.compuphase.com/cmetric.htm
+GAMMA = 2
+
+## Correção Gama, baseado em https://docs.opencv.org/3.4/d3/dc1/tutorial_basic_linear_transform.html
+def contrast(img):
+
+    img = img.astype (np.uint8)
+
+    lookUpTable = np.empty((1,256), np.uint8)
+    for i in range(256):
+        lookUpTable[0,i] = np.clip(pow(i / 255.0, GAMMA) * 255, 0, 255)
+
+    new_image = cv2.LUT(img, lookUpTable)
+
+    return new_image
+
+## metodo baseado em https://www.compuphase.com/cmetric.htm
 def colorDelta(color):
 
     red = (color[R] + GREEN[R]) / 2
@@ -26,7 +42,7 @@ def colorDelta(color):
 
     return delta
 
-def removeBackground(img):
+def generateMatte(img):
 
     matte = np.zeros((img.shape[0], img.shape[1]))
 
@@ -36,8 +52,26 @@ def removeBackground(img):
             delta = colorDelta(color)
             matte[x][y] = delta
 
-    return matte
+    return matte * 255
 
+def removeBackground(img, back, matte):
+
+    result = np.zeros((img.shape[0], img.shape[1], 3))
+
+    for y in range(img.shape[0]):
+        for x in range(img.shape[1]):
+            # print(matte[y][x])
+            # if(np.trunc(matte[y][x]) == 0):
+            #     result[y][x] = back[y][x]
+            #     continue
+            # print(matte[y][x])
+            if(matte[y][x] > 45):
+                result[y][x] = img[y][x]
+                continue
+            # result[y][x] = (matte[y][x]) * back[y][x]
+    
+    print(result.shape)
+    return result
 
 def main ():
 
@@ -48,10 +82,26 @@ def main ():
         print ('Erro abrindo a imagem.\n')
         sys.exit ()
 
-    matte = removeBackground(img)
+    back = cv2.imread (BACK_IMAGE, cv2.IMREAD_COLOR)
+    if back is None:
+        print ('Erro abrindo o back.\n')
+        sys.exit ()
+
+    resized = cv2.resize(back, (original.shape[1], original.shape[0]), interpolation= cv2.INTER_LINEAR)
+    cv2.imwrite('resized.bmp', resized)
+
+    matte = generateMatte(img)
     matte = cv2.normalize(matte, matte, 0, 1, cv2.NORM_MINMAX)
-    print(matte)
-    cv2.imwrite('matte.bmp', matte*255)
+    matte = matte * 255
+    # print(matte)
+    cv2.imwrite('matte.bmp', matte)
+
+    with_contrast = contrast(matte)
+    # with_contrast = cv2.convertScaleAbs(matte*255, alpha=ALPHA, beta=0)
+    cv2.imwrite('contrasted.bmp', with_contrast)
+
+    result = removeBackground(original, resized, with_contrast)
+    cv2.imwrite('result.bmp', result)
 
 
 if __name__ == '__main__':
